@@ -1,0 +1,54 @@
+#!/bin/bash
+# Moves and rename pictures to a time-based structure of dirs and files. Move only valid images, use exif date, solve collisions and move non-image to root.
+# Dependencies: ripgrep, exiv2
+
+src="$HOME/Pictures/import"
+dst="$HOME/Pictures/photos"
+
+cd "$src" || (echo "Source dir don't exist."; exit 1)
+[ -d "$dst" ] || (echo "Destination dir don't exist."; exit 1)
+
+# Move file from A to B and rename in case of collision
+function smartMove { # $sourcePath $dirPath $fileName
+    if [ -f "$2/$3" ]; then
+        echo "$2/$3 already exists, renaming."
+        preffix="${3/.*/}"; suffix="${3/*./}"
+        newfile="$preffix-$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head --bytes 8).$suffix" # append random string
+        smartMove "$1" "$2" "$newfile"; return # thunder can strike the same place twice
+    else
+        newfile="$3"
+    fi
+    mkdir -p "$2"; mv -n "$1" "$2/$newfile"; return
+}
+
+mapfile -t pictures < <(rg --files | rg -i -e '\.(jpg|jpeg|png)$') # see SC2207
+
+for pic in "${pictures[@]}"; do # iterate over files with image extensions
+    unset mime exif date dir file # reset local variables
+
+    mime=$(file --mime-type "$pic") # get mime type
+    if ! (echo "$mime" | rg "image/" 1>/dev/null); then # skip iteration if not an image
+        echo "$pic is not an image."; continue
+    fi
+
+    exif=$(exiv2 pr "$pic" 2>/dev/null) && date=$(echo "$exif" | rg -a 'Image timestamp : ' -r '' | head -1 | sed 's/:/\//;s/:/\//') # get exif date
+    
+    if [ "$date" ]; then # check if not empty 
+        dir="$dst/$(date -d "$date" "+%y-%m")"
+        file="$(date -d "$date" "+%s")"
+    else # use file date if no exif date
+        dir="$dst/$(date -r "$pic" "+%y-%m")"
+        file="$(date -r "$pic" "+%s")"
+    fi
+
+    # shellcheck disable=SC2030,SC2031
+    file+=${mime/*\//.} # append extension to file name
+    smartMove "$pic" "$dir" "$file"  # move files
+done
+
+mapfile -t misc < <(find . -mindepth 2 -type f) # list of non image files
+
+for f in "${misc[@]}"; do
+    smartMove "$f" . "${f/*\//}" 
+done
+
