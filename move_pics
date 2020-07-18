@@ -2,7 +2,7 @@
 # Moves and rename pictures to a time-based structure of dirs and files. Move only valid images, use exif date, solve collisions and move non-image to root.
 # Dependencies: ripgrep, exiv2
 
-src="$HOME/Pictures/import"
+src="$HOME/Sync/DCIM"
 dst="$HOME/Pictures/photos"
 
 cd "$src" || (echo "Source dir don't exist."; exit 1)
@@ -18,10 +18,11 @@ function smartMove { # $sourcePath $dirPath $fileName
     else
         newfile="$3"
     fi
+    echo "Moving $1 to $2/$newfile"
     mkdir -p "$2"; mv -n "$1" "$2/$newfile"; return
 }
 
-mapfile -t pictures < <(rg --files | rg -i -e '\.(jpg|jpeg|png)$') # see SC2207
+mapfile -t pictures < <(rg --files | rg -i -e '\.(jpg|jpeg|png|webp)$') # see SC2207
 
 for pic in "${pictures[@]}"; do # iterate over files with image extensions
     unset mime exif date dir file # reset local variables
@@ -46,7 +47,7 @@ for pic in "${pictures[@]}"; do # iterate over files with image extensions
     smartMove "$pic" "$dir" "$file"  # move files
 done
 
-mapfile -t misc < <(find . -mindepth 2 -type f) # list of non image files
+mapfile -t misc < <(find . -type f -not -path "*/.*" -path "./*/*") # list of non image files while excluding hidden dirs and files
 
 for f in "${misc[@]}"; do
     smartMove "$f" . "${f/*\//}" 
