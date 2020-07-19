@@ -6,7 +6,6 @@
     - [Import](#import)
         - [Performance](#performance)
     - [Export](#export)
-        - [Performance](#performance-1)
     - [Daemon](#daemon)
     - [Viewing](#viewing)
 
@@ -17,17 +16,23 @@ Photon is the elementary particle of light and electromagnetic radiation. Photon
 Right now it moves images from folder A to B. It does nice things like renaming images in a neatly organized **YY-MM/timestamp.jpg** pattern, mime file type parsing, reading date from exif metadata when that's available, resolve collisions, move non-images to root.
 
 # HOW-TO
-Install dependencies: ripgrep, exiv2, ImageMagick
+Install dependencies: ripgrep, exiv2, ImageMagick, trash-cli
 
 Run `setup.sh` to install to `.local/bin/`
 
 Configure source and destination dirs in `move_pics` and run it.
 
 # Development
-## Import
-TODO: Import video files to a videos dir.
+TODO: AUR script. +later
 
-TODO: Move dedup code to import script.
+TODO: Fix getopt. +later
+
+TODO: Merged, cleaner code. +done
+
+## Import
+TODO: Import video files.
+
+TODO: Merge scripts. +done
 
 TODO: Dedup pictures. +done
 
@@ -43,15 +48,16 @@ TODO: Strip metadata and resize pictures. +done
 
 TODO: Reencode videos.
 
-### Performance
-Image conversion is process intensive and unavoidably slow.
+TODO: Export exif date. +asap
+
+TODO: Fix images upscaling when optimizing.
 
 TODO: Detect and avoid already converted. +asap
 
 TODO: Delete from mirror when their original were deleted. +asap
 
 ## Daemon
-TODO: Daemon for importing/exporting when files change.
+TODO: Daemon for importing/exporting via inotify.
 
 ## Viewing
 Is there anything great for this? Shotwell is the best Gnome tool that I know. I have my AutoWebGallery project but it's crude. I really just need a web gallery with a minimap scroller and tags searching and that throws anything at me like cat does. Network IO is not a constraint because it's local.

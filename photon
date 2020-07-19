@@ -1,0 +1,145 @@
+#!/bin/bash
+# Moves and rename pictures to a time-based structure of dirs and files. Move only valid images, use exif date, solve collisions and move non-image to root.
+# Dependencies: ripgrep, exiv2, rmlint, trash-cl
+
+# FUNCTIONS
+function printHelp {
+    printf "HELP:
+    \t\e[1m'--import'\e[0m Smartly import images from source to destination. Dedup. import only images, organize and rename by date. Usage: photon --import srcDir dstDir;
+    \t\e[1m'--export'\e[0m Smartly export optimized images from source to destination.
+    \tUsage: photon --export srcDir dstDir -h height (defaults to 1080p) -f format (defaults to original, don't use for better quality and use webp for smaller size);
+    \t\e[1m'--optimize'\e[0m Do the same thing as export but dumbly. Requires only a target dir and Will overwrite files.
+    \t\e[1m'--dedup'\e[0m Move duplicates of images at target to trash. Usage: photon --dedup targetDir."
+}
+
+# Find all image files in target dir.
+function findPics { find "$1" -regex '.*\.\(jpg\|jpeg\|png\|webp\)'; }
+
+# Return 0 if files are equal and 1 if they are not. Use Metro hashing.
+function compareFiles { rmlint --equal "$1" "$2" -O summary:stdout &>/dev/null && return 0 || return 1; }
+
+# Move file from A to B. For collisions ignore when equal and rename when different.
+function smartMove {
+    srcPath="$1"; dstDir="$2"; dstFile="$3"
+
+    if [ -f "$dstDir/$dstFile" ]; then # if file already exists
+        echo "$dstDir/$dstFile already exists"
+        if compareFiles "$srcPath" "$dstDir/dstFile"; then
+            echo "They are equal, ignoring."
+            trash "$srcPath"; return 
+        else
+            echo "They aren't equal, renaming."
+            filePreffix="${dstFile/.*/}"; fileSuffix="${dstFile/*./}"
+            randomUID=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head --bytes 8)
+            newFile="$filePreffix-$randomUID.$fileSuffix" # append random string to file name
+            smartMove "$srcPath" "$dstDir" "$newFile"; return # thunder can strike the same place twice
+        fi
+    else
+        newFile="$dstFile"
+    fi
+    echo "Moving $srcPath to $dstDir/$newFile"
+    mkdir -p "$dstDir"; mv -n "$srcPath" "$dstDir/$newFile"; return
+}
+
+# Iterate over image files in A and smart move them do B.
+function importPics {
+    src=$1; dst=$2
+
+    cd "$src" || (echo "Source dir don't exist."; exit 1)
+    [ -d "$dst" ] || (echo "Destination dir don't exist."; exit 1)
+    
+    mapfile -t pictures < <(findPics "$src") # see SC2207
+    for pic in "${pictures[@]}"; do
+        unset mime exif date dir file # garbage collection
+
+        mime=$(file --mime-type "$pic") # check mime type and skip iteration if not an image
+        if ! (echo "$mime" | rg "image/" 1>/dev/null); then
+            echo "$pic is not an image."; continue
+        fi
+
+        exif=$(exiv2 pr "$pic" 2>/dev/null) && date=$(echo "$exif" |
+            rg -a 'Image timestamp : ' -r '' | head -1 | sed 's/:/\//;s/:/\//') # get exif date
+        
+        if [ "$date" ]; then # check if not empty 
+            dir="$dst/$(date -d "$date" "+%y-%m")"
+            file="$(date -d "$date" "+%s")"
+        else # use file date if no exif date
+            dir="$dst/$(date -r "$pic" "+%y-%m")"
+            file="$(date -r "$pic" "+%s")"
+        fi
+
+        # shellcheck disable=SC2030,SC2031
+        file+=${mime/*\//.} # append extension to file name
+        
+        smartMove "$pic" "$dir" "$file" # move files
+    done
+}
+
+# Move non image and non hidden files to root.
+function moveMisc { 
+    mapfile -t misc < <(find . -type f -not -path "*/.*" -path "./*/*") 
+    for f in "${misc[@]}"; do
+        smartMove "$f" . "${f/*\//}" 
+    done
+}
+
+# Dedup and lint files at target.
+function dedupPics {
+    findPics "$1" | rmlint - -T "bl,ed,ef,df" -R -PP -v -S "lam" -o "sh:/tmp/rmlint" && /tmp/rmlint -c -d 1>/dev/null
+
+    # rmlint don't delete by itself but export a script that does that. When you set the output with -o it don't use the defaults and will work stupidly.
+    # You have to manuallly tell him everything. And -c and -d are script arguments for delete empty folders and run quiet.
+}
+
+# shellcheck disable=SC2086
+function convertPic { convert "$1" -resize x$optimal_height -strip "$2"; }  
+
+# Resize images, strip metadata and export while optionallly converting.
+function optimizePics {
+    src="$1"; dst="$2"
+
+    echo "Exporting optimized images."
+    
+    # shellcheck disable=SC2086
+    [ $optimal_height ] || optimal_height=1080 # default image height 
+
+    mapfile -t pics < <(findPics "$src")
+    
+    for path in "${pics[@]}"; do
+        file="${path/*\//}"
+
+        # shellcheck disable=SC2086
+        if [ $optimal_format ]; then
+            convertPic "$path" "$dst/${file/.*/.$extension}" 
+        else
+            convertPic "$path" "$dst/$file" 
+        fi
+    done
+}
+
+# MAIN
+
+# FIXME: Not working with --switch
+# read optional flags
+#while getopts h:f: flag; do
+#	case "${flag}" in
+#	    h) optimal_height=${OPTARG};;
+#	    f) optimal_format=${OPTARG};;
+#        \?) echo "Invalid flag!"; exit 1;;
+#        :) ;;
+#	esac
+#done
+
+# flags override
+optimal_height="1440"
+optimal_format=""
+
+# do stuff 
+case $1 in
+    --import) dedupPics "$2" && importPics "$2" "$3";;
+    --export) optimizePics "$2" "$3";;
+    --optimize) optimizePics "$2" "$2";;
+    --dedup) dedupPics "$2";;
+    *) printHelp; exit;; 
+esac
+
