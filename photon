@@ -5,18 +5,18 @@
 # FUNCTIONS
 function printHelp {
     printf "HELP:
-    \t\e[1m'--import'\e[0m Smartly import images from source to destination. Dedup. import only images, organize and rename by date. Usage: photon --import srcDir dstDir;
-    \t\e[1m'--export'\e[0m Smartly export optimized images from source to destination.
-    \tUsage: photon --export srcDir dstDir -h height (defaults to 1080p) -f format (defaults to original, don't use for better quality and use webp for smaller size);
-    \t\e[1m'--optimize'\e[0m Do the same thing as export but dumbly. Requires only a target dir and Will overwrite files.
-    \t\e[1m'--dedup'\e[0m Move duplicates of images at target to trash. Usage: photon --dedup targetDir."
+     \e[1m'--import'\e[0m Smartly import images from source to destination. Dedup. import only images, organize and rename by date. Usage: photon --import srcDir dstDir;
+     \e[1m'--export'\e[0m Smartly export optimized images from source to destination. 
+     Usage: photon --export srcDir dstDir -h height (defaults to 1080p) -f format (defaults to original, don't use for better quality and use webp for smaller size);
+     \e[1m'--optimize'\e[0m Do the same thing as export but dumbly. Requires only a target dir and Will overwrite files.
+     \e[1m'--dedup'\e[0m Move duplicates of images at target to trash. Usage: photon --dedup targetDir."
 }
 
 # Find all image files in target dir.
 function findPics { find "$1" -regex '.*\.\(jpg\|jpeg\|png\|webp\)'; }
 
 # Return 0 if files are equal and 1 if they are not. Use Metro hashing.
-function compareHashs { rmlint --equal "$1" "$2" -O summary:stdout &>/dev/null && return 0 || return 1; }
+function compareHashes { rmlint --equal "$1" "$2" -O summary:stdout &>/dev/null && return 0 || return 1; }
 
 # Move file from A to B. For collisions ignore when equal and rename when different.
 function smartMove {
@@ -24,21 +24,21 @@ function smartMove {
 
     if [ -f "$dstDir/$dstFile" ]; then # if file already exists
         echo "$dstDir/$dstFile already exists"
-        if compareHashs "$srcPath" "$dstDir/dstFile"; then
-            echo "They are equal, ignoring."
-            trash "$srcPath"; return 
+        if compareHashes "$srcPath" "$dstDir/dstFile"; then
+            echo "They are equal, deleting at source."
+            trash -f "$srcPath"; return 0
         else
-            echo "They aren't equal, renaming."
-            filePreffix="${dstFile/.*/}"; fileSuffix="${dstFile/*./}"
+            echo "They aren't equal, renaming at destination."
+            filePreffix="${dstFile%.*}"; fileSuffix="${dstFile#*.}"
             randomUID=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head --bytes 8)
             newFile="$filePreffix-$randomUID.$fileSuffix" # append random string to file name
-            smartMove "$srcPath" "$dstDir" "$newFile"; return # thunder can strike the same place twice
+            smartMove "$srcPath" "$dstDir" "$newFile"; return 0 # thunder can strike the same place twice
         fi
     else
         newFile="$dstFile"
     fi
     # echo "Moving $srcPath to $dstDir/$newFile" # verbose
-    mkdir -p "$dstDir"; mv -n "$srcPath" "$dstDir/$newFile"; return
+    mkdir -p "$dstDir"; mv -n "$srcPath" "$dstDir/$newFile"
 }
 
 # Iterate over image files in A and smart move them do B.
@@ -70,18 +70,19 @@ function importPics {
         fi
 
         # shellcheck disable=SC2030,SC2031
-        dstName+=${mime/*\//.} # append extension to file name
+        dstName+=.${mime##*/} # append extension to file name
         
         smartMove "$srcPath" "$dstDir" "$dstName" # move files
     done
 }
 
-# Move non image and non hidden files to root.
+# Move all except hidden files to root.
+# TODO: Clean in the future if it's not being used.
 function moveMisc {
     rootDir="$1"
-    mapfile -t misc < <(find "$rootDir" -type f -not -path "*/.*" -path "./*/*") 
+    mapfile -t misc < <(find "$rootDir" -type f -not -path "*/.*" -not -path "./*/*") 
     for filePath in "${misc[@]}"; do
-        smartMove "$filePath" "$rootDir" "${filePath/*\//}" 
+        smartMove "$filePath" "$rootDir" "${filePath##*/}" 
     done
 }
 
@@ -98,14 +99,17 @@ function cleanPics {
     srcDir="$1" ; dstDir="$2"
     mapfile -t pictures < <(findPics "$dstDir")
     for dstPath in "${pictures[@]}"; do
-        [[ -f "$srcDir/${dstPath/*\//}" ]] || trash "$dstPath"
-    done    
+        [[ $dstPath =~ [0-9]{2}-[0-9]{2}/[0-9]{10}.* ]] && filePath=$BASH_REMATCH # get "YY-MM/timestamp.fmt"
+        [[ -f "$srcDir/$filePath" ]] || trash -f "$dstPath"
+    done
 }
 
-# Compare two file paths modify time. Return 1 if first is newer and 0 otherwise. 
+# Compare modify times. Pass back true if A is newer than B, and false otherwise. 
 function compareMTimes {
-    # shellcheck disable=2046
-    return $([[ $(stat -c %Y "$1") -gt $(stat -c %Y "$2") ]])
+    [[ -f "$1" ]] && [[ -f "$2" ]] || return # return if any of the files don't exist 
+    # shellcheck disable=SC2086
+    # shellcheck disable=SC2015 # that's purposeful
+    [[ $(stat -c %Y "$1") -gt $(stat -c %Y "$2") ]] && eval $3=true || eval $3=false
 }
 
 # Convert image using ImageMagick
@@ -114,37 +118,44 @@ function convertPic { convert -resize x$optimal_height\> -strip "$1" "$2"; } #\>
 
 # Modify file timestamp and Exif tag 'Creation Date' to match timestamp contained in file name. 
 function setDate {
-    filePath="$1"; fileName="$2"
-    timeUnix=${fileName/-*/}
-    timeRFC3339=$(date -d "@$timeUnix" "+%Y-%m-%d %H:%M:%S") || return # if date is invalid
-    [[ $#timeUnix -eq 9 ]] || return # if it is not the expected timestamp
+    # shellcheck disable=SC2128 # just want first element
+    [[ "$1" =~ [0-9]{10} ]] && timeUnix=$BASH_REMATCH # $1 is filePath
+    [[ ${#timeUnix} -eq 10 ]] || return 1 # if it is not the expected timestamp
+    timeRFC3339=$(date -d "@$timeUnix" "+%Y-%m-%d %H:%M:%S") || return 1 # if date is invalid
     
     # touch -d "@$timeUnix" "$filePath" # disabled because exif is enough and mtime is important for other stuff
 
     # shellcheck disable=SC2086
-    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339 2019-07-19 20:00:00" "$filePath"
+    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339" "$1"
 }
 
 # Resize images, strip metadata and export while optionallly converting.
 function optimizePics {
     src="$1"; dst="$2"
 
+    [ -d "$src" ] || (echo "Source dir don't exist."; exit 1)
+    [ -d "$dst" ] || (echo "Destination dir don't exist."; exit 1)
+    
     # shellcheck disable=SC2086
     [ $optimal_height ] || optimal_height=1080 # default image height 
 
     mapfile -t pictures < <(findPics "$src")
     
     for srcPath in "${pictures[@]}"; do
-        fileName="${srcPath/*\//}"
-       
-        # shellcheck disable=SC2086
-        [ $optimal_format ] && dstPath="$dst/${fileName/.*/.$optimal_format}" || dstPath="$dst/$fileName"
-        
-        compareMTimes "$srcPath" "$dstPath" || continue # skip iteration if destination is newer
+        # shellcheck disable=2128 # just want first element 
+        [[ $srcPath =~ [0-9]{2}-[0-9]{2}/[0-9]{10}.* ]] && filePath=$BASH_REMATCH # get "YY-MM/timestamp.fmt"
 
         # shellcheck disable=SC2086
+        [ $optimal_format ] && dstPath="$dst/${filePath/.*/.$optimal_format}" || dstPath="$dst/$filePath"
+        
+        compareMTimes "$srcPath" "$dstPath" "isNewer"
+        # shellcheck disable=SC2154 # isNewer is a pass back boolean
+        ${isNewer} || continue # skip iteration if source is not newer
+
+        # shellcheck disable=SC2086
+        mkdir -p ${dstPath%/*}
         convertPic "$srcPath" "$dstPath" # convert with ImageMagick       
-        setDate "$dstPath" "$fileName" # modify file and exif date
+        setDate "$dstPath" # modify file and exif date
     done
 }
 
@@ -165,11 +176,11 @@ function optimizePics {
 optimal_height="1440"
 optimal_format=""
 
-# do stuff 
+# $2 is srcDir or targetDir, $3 is dstDir
 case $1 in
-    --import) dedupPics "$2" && importPics "$2" "$3" && moveMisc "$2";;
+    --import) dedupPics "$2" && importPics "$2" "$3";;
     --export) optimizePics "$2" "$3" && cleanPics "$2" "$3";;
-    --optimize) optimizePics "$2" "$2";;
+    --optimize) optimizePics "$2" "$2";; 
     --dedup) dedupPics "$2";;
     *) printHelp; exit;; 
 esac
