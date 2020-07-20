@@ -44,13 +44,13 @@ Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% re
 
 TODO: Reencode videos.
 
-TODO: Export exif date. +asap
+TODO: Set exif date in exported pics. +done
 
 TODO: Fix images upscaling when optimizing.
 
-TODO: Detect and avoid already converted. +asap
+TODO: Avoid exporting already exported and not newer. +done
 
-TODO: Delete from mirror when their original were deleted. +asap
+TODO: Delete from mirror when the original was deleted. +done
 
 ## Daemon
 TODO: Daemon for importing/exporting via inotify.

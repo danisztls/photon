@@ -45,41 +45,43 @@ function smartMove {
 function importPics {
     src=$1; dst=$2
 
-    cd "$src" || (echo "Source dir don't exist."; exit 1)
+    [ -d "$src" ] || (echo "Source dir don't exist."; exit 1)
     [ -d "$dst" ] || (echo "Destination dir don't exist."; exit 1)
     
     mapfile -t pictures < <(findPics "$src") # see SC2207
-    for pic in "${pictures[@]}"; do
-        unset mime exif date dir file # garbage collection
+    for srcPath in "${pictures[@]}"; do
+        unset mime exif exifDate dstDir dstName # garbage collection
 
-        mime=$(file --mime-type "$pic") # check mime type and skip iteration if not an image
+        mime=$(file --mime-type "$srcPath") # check mime type and skip iteration if not an image
         if ! (echo "$mime" | rg "image/" 1>/dev/null); then
-            echo "$pic is not an image."; continue
+            echo "$srcPath is not an image."; continue
         fi
 
-        exif=$(exiv2 pr "$pic" 2>/dev/null) && date=$(echo "$exif" |
+        exif=$(exiv2 pr "$srcPath" 2>/dev/null) && exifDate=$(echo "$exif" |
             rg -a 'Image timestamp : ' -r '' | head -1 | sed 's/:/\//;s/:/\//') # get exif date
         
-        if [ "$date" ]; then # check if not empty 
-            dir="$dst/$(date -d "$date" "+%y-%m")"
-            file="$(date -d "$date" "+%s")"
+        # if exifDate exists use it to parse fileDate, if not uses file date
+        if [ "$exifDate" ]; then # check if not empty 
+            dstDir="$dst/$(date -d "$exifDate" "+%y-%m")"
+            dstName="$(date -d "$exifDate" "+%s")"
         else # use file date if no exif date
-            dir="$dst/$(date -r "$pic" "+%y-%m")"
-            file="$(date -r "$pic" "+%s")"
+            dstDir="$dst/$(date -r "$srcPath" "+%y-%m")"
+            dstName="$(date -r "$srcPath" "+%s")"
         fi
 
         # shellcheck disable=SC2030,SC2031
-        file+=${mime/*\//.} # append extension to file name
+        dstName+=${mime/*\//.} # append extension to file name
         
-        smartMove "$pic" "$dir" "$file" # move files
+        smartMove "$srcPath" "$dstDir" "$dstName" # move files
     done
 }
 
 # Move non image and non hidden files to root.
-function moveMisc { 
-    mapfile -t misc < <(find . -type f -not -path "*/.*" -path "./*/*") 
-    for f in "${misc[@]}"; do
-        smartMove "$f" . "${f/*\//}" 
+function moveMisc {
+    rootDir="$1"
+    mapfile -t misc < <(find "$rootDir" -type f -not -path "*/.*" -path "./*/*") 
+    for filePath in "${misc[@]}"; do
+        smartMove "$filePath" "$rootDir" "${filePath/*\//}" 
     done
 }
 
@@ -89,6 +91,15 @@ function dedupPics {
 
     # rmlint don't delete by itself but export a script that does that. When you set the output with -o it don't use the defaults and will work stupidly.
     # You have to manuallly tell him everything. And -c and -d are script arguments for delete empty folders and run quiet.
+}
+
+# Delete from destination files not found on source
+function cleanPics {
+    srcDir="$1" ; dstDir="$2"
+    mapfile -t pictures < <(findPics "$dstDir")
+    for dstPath in "${pictures[@]}"; do
+        [[ -f "$srcDir/${dstPath/*\//}" ]] || trash "$dstPath"
+    done    
 }
 
 # Compare two file paths modify time. Return 1 if first is newer and 0 otherwise. 
@@ -103,15 +114,15 @@ function convertPic { convert "$1" -resize x$optimal_height -strip "$2"; }
 
 # Modify file timestamp and Exif tag 'Creation Date' to match timestamp contained in file name. 
 function setDate {
-    filepath="$1"; filename="$2"
-    timeUnix=${filename/-*/}
+    filePath="$1"; fileName="$2"
+    timeUnix=${fileName/-*/}
     timeRFC3339=$(date -d "@$timeUnix" "+%Y-%m-%d %H:%M:%S") || return # if date is invalid
     [[ $#timeUnix -eq 9 ]] || return # if it is not the expected timestamp
     
-    # touch -d "@$timeUnix" "$filepath" # disabled because exif is enough and mtime is important for other stuff
+    # touch -d "@$timeUnix" "$filePath" # disabled because exif is enough and mtime is important for other stuff
 
     # shellcheck disable=SC2086
-    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339 2019-07-19 20:00:00" "$filepath"
+    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339 2019-07-19 20:00:00" "$filePath"
 }
 
 # Resize images, strip metadata and export while optionallly converting.
@@ -123,19 +134,19 @@ function optimizePics {
     # shellcheck disable=SC2086
     [ $optimal_height ] || optimal_height=1080 # default image height 
 
-    mapfile -t pics < <(findPics "$src")
+    mapfile -t pictures < <(findPics "$src")
     
-    for srcPath in "${pics[@]}"; do
-        file="${srcPath/*\//}"
+    for srcPath in "${pictures[@]}"; do
+        fileName="${srcPath/*\//}"
        
         # shellcheck disable=SC2086
-        [ $optimal_format ] && dstPath="$dst/${file/.*/.$optimal_format}" || dstPath="$dst/$file"
+        [ $optimal_format ] && dstPath="$dst/${fileName/.*/.$optimal_format}" || dstPath="$dst/$fileName"
         
         compareMTimes "$srcPath" "$dstPath" || continue # skip iteration if destination is newer
 
         # shellcheck disable=SC2086
         convertPic "$srcPath" "$dstPath" # convert with ImageMagick       
-        setDate "$dstPath" "$file" # modify file and exif date
+        setDate "$dstPath" "$fileName" # modify file and exif date
     done
 }
 
@@ -158,8 +169,8 @@ optimal_format=""
 
 # do stuff 
 case $1 in
-    --import) dedupPics "$2" && importPics "$2" "$3";;
-    --export) optimizePics "$2" "$3";;
+    --import) dedupPics "$2" && importPics "$2" "$3" && moveMisc "$2";;
+    --export) optimizePics "$2" "$3" && cleanPics "$2" "$3";;
     --optimize) optimizePics "$2" "$2";;
     --dedup) dedupPics "$2";;
     *) printHelp; exit;; 
