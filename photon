@@ -16,7 +16,7 @@ function printHelp {
 function findPics { find "$1" -regex '.*\.\(jpg\|jpeg\|png\|webp\)'; }
 
 # Return 0 if files are equal and 1 if they are not. Use Metro hashing.
-function compareFiles { rmlint --equal "$1" "$2" -O summary:stdout &>/dev/null && return 0 || return 1; }
+function compareHashs { rmlint --equal "$1" "$2" -O summary:stdout &>/dev/null && return 0 || return 1; }
 
 # Move file from A to B. For collisions ignore when equal and rename when different.
 function smartMove {
@@ -24,7 +24,7 @@ function smartMove {
 
     if [ -f "$dstDir/$dstFile" ]; then # if file already exists
         echo "$dstDir/$dstFile already exists"
-        if compareFiles "$srcPath" "$dstDir/dstFile"; then
+        if compareHashs "$srcPath" "$dstDir/dstFile"; then
             echo "They are equal, ignoring."
             trash "$srcPath"; return 
         else
@@ -91,6 +91,12 @@ function dedupPics {
     # You have to manuallly tell him everything. And -c and -d are script arguments for delete empty folders and run quiet.
 }
 
+# Compare two file paths modify time. Return 1 if first is newer and 0 otherwise. 
+function compareMTimes {
+    # shellcheck disable=2046
+    return $([[ $(stat -c %Y "$1") -gt $(stat -c %Y "$2") ]])
+}
+
 # Convert image using ImageMagick
 # shellcheck disable=SC2086
 function convertPic { convert "$1" -resize x$optimal_height -strip "$2"; }  
@@ -119,17 +125,17 @@ function optimizePics {
 
     mapfile -t pics < <(findPics "$src")
     
-    for path in "${pics[@]}"; do
-        file="${path/*\//}"
+    for srcPath in "${pics[@]}"; do
+        file="${srcPath/*\//}"
+       
+        # shellcheck disable=SC2086
+        [ $optimal_format ] && dstPath="$dst/${file/.*/.$optimal_format}" || dstPath="$dst/$file"
+        
+        compareMTimes "$srcPath" "$dstPath" || continue # skip iteration if destination is newer
 
         # shellcheck disable=SC2086
-        if [ $optimal_format ]; then
-            convertPic "$path" "$dst/${file/.*/.$optimal_format}" 
-        else
-            convertPic "$path" "$dst/$file" 
-        fi
-        
-        setDate "$dst/$file" "$file" # modify file and exif date
+        convertPic "$srcPath" "$dstPath" # convert with ImageMagick       
+        setDate "$dstPath" "$file" # modify file and exif date
     done
 }
 
