@@ -46,7 +46,7 @@ TODO: Reencode videos.
 
 TODO: Set exif date in exported pics. +done
 
-TODO: Fix images upscaling when optimizing.
+TODO: Fix images upscaling when optimizing. +done
 
 TODO: Avoid exporting already exported and not newer. +done
 

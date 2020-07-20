@@ -37,7 +37,7 @@ function smartMove {
     else
         newFile="$dstFile"
     fi
-    echo "Moving $srcPath to $dstDir/$newFile"
+    # echo "Moving $srcPath to $dstDir/$newFile" # verbose
     mkdir -p "$dstDir"; mv -n "$srcPath" "$dstDir/$newFile"; return
 }
 
@@ -53,12 +53,12 @@ function importPics {
         unset mime exif exifDate dstDir dstName # garbage collection
 
         mime=$(file --mime-type "$srcPath") # check mime type and skip iteration if not an image
-        if ! (echo "$mime" | rg "image/" 1>/dev/null); then
+        if ! (rg "image/" <<< "$mime" 1>/dev/null); then
             echo "$srcPath is not an image."; continue
         fi
 
-        exif=$(exiv2 pr "$srcPath" 2>/dev/null) && exifDate=$(echo "$exif" |
-            rg -a 'Image timestamp : ' -r '' | head -1 | sed 's/:/\//;s/:/\//') # get exif date
+        exif=$(exiv2 pr "$srcPath" 2>/dev/null) && # get exif date
+        exifDate=$(rg -a 'Image timestamp : ' -r '' <<< "$exif" | head -1 | sed 's/:/\//;s/:/\//')
         
         # if exifDate exists use it to parse fileDate, if not uses file date
         if [ "$exifDate" ]; then # check if not empty 
@@ -110,7 +110,7 @@ function compareMTimes {
 
 # Convert image using ImageMagick
 # shellcheck disable=SC2086
-function convertPic { convert "$1" -resize x$optimal_height -strip "$2"; }  
+function convertPic { convert -resize x$optimal_height\> -strip "$1" "$2"; } #\> is needed to only dowscale images
 
 # Modify file timestamp and Exif tag 'Creation Date' to match timestamp contained in file name. 
 function setDate {
@@ -129,8 +129,6 @@ function setDate {
 function optimizePics {
     src="$1"; dst="$2"
 
-    echo "Exporting optimized images."
-    
     # shellcheck disable=SC2086
     [ $optimal_height ] || optimal_height=1080 # default image height 
 
