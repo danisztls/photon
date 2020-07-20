@@ -25,7 +25,7 @@ Configure source and destination dirs in `move_pics` and run it.
 # Development
 TODO: AUR script. +later
 
-TODO: Fix getopt. +later
+TODO: Fix getopts. +later
 
 TODO: Merged, cleaner code. +done
 

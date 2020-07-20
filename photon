@@ -91,8 +91,22 @@ function dedupPics {
     # You have to manuallly tell him everything. And -c and -d are script arguments for delete empty folders and run quiet.
 }
 
+# Convert image using ImageMagick
 # shellcheck disable=SC2086
 function convertPic { convert "$1" -resize x$optimal_height -strip "$2"; }  
+
+# Modify file timestamp and Exif tag 'Creation Date' to match timestamp contained in file name. 
+function setDate {
+    filepath="$1"; filename="$2"
+    timeUnix=${filename/-*/}
+    timeRFC3339=$(date -d "@$timeUnix" "+%Y-%m-%d %H:%M:%S") || return # if date is invalid
+    [[ $#timeUnix -eq 9 ]] || return # if it is not the expected timestamp
+    
+    # touch -d "@$timeUnix" "$filepath" # disabled because exif is enough and mtime is important for other stuff
+
+    # shellcheck disable=SC2086
+    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339 2019-07-19 20:00:00" "$filepath"
+}
 
 # Resize images, strip metadata and export while optionallly converting.
 function optimizePics {
@@ -110,10 +124,12 @@ function optimizePics {
 
         # shellcheck disable=SC2086
         if [ $optimal_format ]; then
-            convertPic "$path" "$dst/${file/.*/.$extension}" 
+            convertPic "$path" "$dst/${file/.*/.$optimal_format}" 
         else
             convertPic "$path" "$dst/$file" 
         fi
+        
+        setDate "$dst/$file" "$file" # modify file and exif date
     done
 }
 
