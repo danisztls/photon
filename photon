@@ -5,15 +5,13 @@
 # FUNCTIONS
 function printHelp {
     printf "HELP:
-     \e[1m'--import'\e[0m Smartly import images from source to destination. Dedup. import only images, organize and rename by date. Usage: photon --import srcDir dstDir;
-     \e[1m'--export'\e[0m Smartly export optimized images from source to destination. 
-     Usage: photon --export srcDir dstDir -h height (defaults to 1080p) -f format (defaults to original, don't use for better quality and use webp for smaller size);
-     \e[1m'--optimize'\e[0m Do the same thing as export but dumbly. Requires only a target dir and Will overwrite files.
-     \e[1m'--dedup'\e[0m Move duplicates of images at target to trash. Usage: photon --dedup targetDir."
+     \e[1m'--import'\e[0m Import images from source to destination. Dedup. import only images, organize and rename by date. Usage: photon --import srcDir dstDir;
+     \e[1m'--export'\e[0m Export optimized images from source to destination. Usage: photon --export srcDir dstDir -h height (defaults to 1080p) -f format (defaults to original, don't use for better quality and use webp for smaller size). If you omit dstDir it will instead overwrite images at target.
+     \e[1m'--dedup'\e[0m Move duplicated images at target to trash. Usage: photon --dedup targetDir."
 }
 
 # Find all image files in target dir.
-function findPics { find "$1" -regex '.*\.\(jpg\|jpeg\|png\|webp\)'; }
+function findPics { find "$1" -regex '.*\.\(jpg\|JPG\|jpeg\|JPEG\|png\|PNG\|webp\|WEBP\)'; }
 
 # Add or modify file Exif 'Creation Date' tag. 
 function setExif {
@@ -111,12 +109,10 @@ function cleanPics {
     done
 }
 
-# Compare modify times. Pass back true if A is newer than B, and false otherwise. 
-function compareMTimes {
-    [[ -f "$1" ]] && [[ -f "$2" ]] || return # return if any of the files don't exist 
-    # shellcheck disable=SC2086
-    # shellcheck disable=SC2015 # that's purposeful
-    [[ $(stat -c %Y "$1") -gt $(stat -c %Y "$2") ]] && eval $3=true || eval $3=false
+# Compare modify times. Pass back 1 B is newer than A and 0 otherwise. 
+function compareTimes {
+    [[ -f "$1" ]] && [[ -f "$2" ]] || return 0 # return if any file don't exist 
+    [[ $(stat -c %Y "$1") -gt $(stat -c %Y "$2") ]] && return 0 || return 1
 }
 
 # Convert image using ImageMagick
@@ -125,30 +121,25 @@ function convertPic { convert -resize x$optimal_height\> "$1" "$2"; } #\> is nee
 
 # Resize images, strip metadata and export while optionallly converting.
 function optimizePics {
-    src="$1"; dst="$2"
-
-    [ -d "$src" ] || (echo "Source dir don't exist."; exit 1)
-    [ -d "$dst" ] || (echo "Destination dir don't exist."; exit 1)
+    src="$1"; [ -d "$src" ] || exit 1
     
-    # shellcheck disable=SC2086
-    [ $optimal_height ] || optimal_height=1080 # default image height 
+    if [ "$2" ]; then
+        dst="$2"; [ -d "$dst" ] || exit 1 
+    else
+        dst="$1"
+    fi
+    
+    [ "$optimal_height" ] || optimal_height=1080 # default image height 
 
     mapfile -t pictures < <(findPics "$src")
     
     for srcPath in "${pictures[@]}"; do
-        # shellcheck disable=2128 # just want first element 
-        [[ $srcPath =~ [0-9]{2}-[0-9]{2}/[0-9]{10}.* ]] && filePath=$BASH_REMATCH # get "YY-MM/timestamp.fmt"
-
-        # shellcheck disable=SC2086
-        [ $optimal_format ] && dstPath="$dst/${filePath/.*/.$optimal_format}" || dstPath="$dst/$filePath"
+        fileName="${srcPath##*/}"
+        [ "$optimal_format" ] && fileName="${fileName/.*/.$optimal_format}" || fileName="$fileName"
         
-        compareMTimes "$srcPath" "$dstPath" "isNewer"
-        # shellcheck disable=SC2154 # isNewer is a pass back boolean
-        ${isNewer} || continue # skip iteration if source is not newer
+        ! [ "$2" ] || compareTimes "$srcPath" "$dstPath" || continue # skip iteration if source is not newer
 
-        # shellcheck disable=SC2086
-        mkdir -p ${dstPath%/*}
-        convertPic "$srcPath" "$dstPath" # convert with ImageMagick       
+        dstPath="$dst/$fileName"; convertPic "$srcPath" "$dstPath" # ImageMagick
     done
 }
 
@@ -167,13 +158,13 @@ function optimizePics {
 
 # flags override
 optimal_height="1440"
-optimal_format=""
+optimal_format="webp"
 
 # $2 is srcDir or targetDir, $3 is dstDir
 case $1 in
     --import) dedupPics "$2" && importPics "$2" "$3";;
     --export) optimizePics "$2" "$3" && cleanPics "$2" "$3";;
-    --optimize) optimizePics "$2" "$2";; 
+    --optimize) optimizePics "$2";; 
     --dedup) dedupPics "$2";;
     *) printHelp; exit;; 
 esac
