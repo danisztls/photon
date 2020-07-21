@@ -3,7 +3,6 @@
 
 - [Install](#install)
 - [Development](#development)
-    - [Import](#import)
     - [Export](#export)
     - [Scheduling](#scheduling)
 
@@ -35,21 +34,19 @@ Install dependencies: ripgrep, exiv2, ImageMagick, trash-cli
 Run `setup` to install photon to `.local/bin/`
 
 # Development
+TODO: Fix photon not working with local paths. +asap
+
 TODO: AUR script. +later
 
 TODO: Use getopts. +later
 
-## Import
 TODO: Import video files.
 
-TODO: Fix metadata during import instead of stripping and reinserting it at export. +done
 
 ## Export
 Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% reduction in size with same image quality unless hyper zooming. Converting to webp and 1080p you would get a bigger size reduction while losing a bit of image quality. Just to save space on phone there isn't a need for cloud storage.
 
-TODO: Everything is being deleted after export. +asap
 
-TODO: At export pictures should be at root with sortable names and modification time set to exif tag if that's existent. +done
 
 TODO: Reencode videos.
 
