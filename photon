@@ -15,6 +15,16 @@ function printHelp {
 # Find all image files in target dir.
 function findPics { find "$1" -regex '.*\.\(jpg\|jpeg\|png\|webp\)'; }
 
+# Add or modify file Exif 'Creation Date' tag. 
+function setExif {
+    #srcPath="$1"; srcDate="$2"
+
+    timeRFC3339=$(date -d "@$2" "+%Y-%m-%d %H:%M:%S") || return 1 # if date is invalid
+    
+    # shellcheck disable=SC2086
+    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339" "$1"
+}
+
 # Return 0 if files are equal and 1 if they are not. Use Metro hashing.
 function compareHashes { rmlint --equal "$1" "$2" -O summary:stdout &>/dev/null && return 0 || return 1; }
 
@@ -58,19 +68,15 @@ function importPics {
         fi
 
         exif=$(exiv2 pr "$srcPath" 2>/dev/null) && # get exif date
-        exifDate=$(rg -a 'Image timestamp : ' -r '' <<< "$exif" | head -1 | sed 's/:/\//;s/:/\//')
-        
-        # if exifDate exists use it to parse fileDate, if not uses file date
-        if [ "$exifDate" ]; then # check if not empty 
-            dstDir="$dst/$(date -d "$exifDate" "+%y-%m")"
-            dstName="$(date -d "$exifDate" "+%s")"
-        else # use file date if no exif date
-            dstDir="$dst/$(date -r "$srcPath" "+%y-%m")"
-            dstName="$(date -r "$srcPath" "+%s")"
+        srcDate=$(rg -a 'Image timestamp : ' -r '' <<< "$exif" | head -1 | sed 's/:/\//;s/:/\//')
+       
+        if ! [ "$srcDate" ]; then # if exif data doesn't exist use modify time and add exif tag to file
+            srcDate="$(date -r "$srcPath" "+%s")" && setExif "$srcPath" "$srcDate"
         fi
 
+        dstDir="$dst/$(date -d "@$srcDate" "+%y-%m")" # dir name is YY-MM
         # shellcheck disable=SC2030,SC2031
-        dstName+=.${mime##*/} # append extension to file name
+        dstName="$(date -d "@$srcDate" "+%s").${mime##*/}" # use timestamp on name and mime type on extension
         
         smartMove "$srcPath" "$dstDir" "$dstName" # move files
     done
@@ -99,6 +105,7 @@ function cleanPics {
     srcDir="$1" ; dstDir="$2"
     mapfile -t pictures < <(findPics "$dstDir")
     for dstPath in "${pictures[@]}"; do
+        # shellcheck disable=SC2128 # just want first element
         [[ $dstPath =~ [0-9]{2}-[0-9]{2}/[0-9]{10}.* ]] && filePath=$BASH_REMATCH # get "YY-MM/timestamp.fmt"
         [[ -f "$srcDir/$filePath" ]] || trash -f "$dstPath"
     done
@@ -114,20 +121,7 @@ function compareMTimes {
 
 # Convert image using ImageMagick
 # shellcheck disable=SC2086
-function convertPic { convert -resize x$optimal_height\> -strip "$1" "$2"; } #\> is needed to only dowscale images
-
-# Modify file timestamp and Exif tag 'Creation Date' to match timestamp contained in file name. 
-function setDate {
-    # shellcheck disable=SC2128 # just want first element
-    [[ "$1" =~ [0-9]{10} ]] && timeUnix=$BASH_REMATCH # $1 is filePath
-    [[ ${#timeUnix} -eq 10 ]] || return 1 # if it is not the expected timestamp
-    timeRFC3339=$(date -d "@$timeUnix" "+%Y-%m-%d %H:%M:%S") || return 1 # if date is invalid
-    
-    # touch -d "@$timeUnix" "$filePath" # disabled because exif is enough and mtime is important for other stuff
-
-    # shellcheck disable=SC2086
-    exiv2 -M "set Exif.Photo.DateTimeOriginal $timeRFC3339" "$1"
-}
+function convertPic { convert -resize x$optimal_height\> "$1" "$2"; } #\> is needed to only dowscale images
 
 # Resize images, strip metadata and export while optionallly converting.
 function optimizePics {
@@ -155,7 +149,6 @@ function optimizePics {
         # shellcheck disable=SC2086
         mkdir -p ${dstPath%/*}
         convertPic "$srcPath" "$dstPath" # convert with ImageMagick       
-        setDate "$dstPath" # modify file and exif date
     done
 }
 
