@@ -5,8 +5,7 @@
 - [Development](#development)
     - [Import](#import)
     - [Export](#export)
-    - [Daemon](#daemon)
-    - [Viewing](#viewing)
+    - [Scheduling](#scheduling)
 
 <!-- /TOC -->
 
@@ -22,18 +21,23 @@ Photon is the elementary particle of light and electromagnetic radiation and als
 - Import photos from phone with time-based file renaming, deduplication and collision avoidance.
 - Export light copies of photos back to phone resulting in huge space saving and fast image loading.
 
+**Syncing**
+
+I recommend [Syncthing](https://github.com/syncthing/syncthing). It is a robust and easy to set-up peer-to-peer tool for continuous file syncing throught LAN or WAN.
+
+**Viewing**
+
+Pictures can be viewed in any photo gallery but if you are looking for something simple and open-source I recommend [SimpleGallery](https://github.com/SimpleMobileTools/Simple-Gallery).
+
 # Install
 Install dependencies: ripgrep, exiv2, ImageMagick, trash-cli
 
-Run `setup.sh` to install to `.local/bin/`
-
-Configure source and destination dirs in `move_pics` and run it.
+Run `setup` to install photon to `.local/bin/`
 
 # Development
 TODO: AUR script. +later
 
 TODO: Use getopts. +later
-
 
 ## Import
 TODO: Import video files.
@@ -43,9 +47,7 @@ TODO: Fix metadata during import instead of stripping and reinserting it at expo
 ## Export
 Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% reduction in size with same image quality unless hyper zooming. Converting to webp and 1080p you would get a bigger size reduction while losing a bit of image quality. Just to save space on phone there isn't a need for cloud storage.
 
-TODO: Don't strip exif and fix it on import. +done
 
-TODO: All bugs were fixed. +done
 
 TODO: Reencode videos.
 
@@ -53,11 +55,8 @@ It should not difficult to write an auto-enhance script that will do an average 
 
 TODO: Experiment with enhancement scripts. +later
 
-## Daemon
-TODO: Daemon for importing/exporting via inotify.
+## Scheduling
+Syncthing does not have a hooks feature but it's being [discussed](https://github.com/syncthing/syncthing/issues/5601) and possibly I can monitor journalctl for Syncthing behaviour.
 
-TODO: Does Syncthing provides a after sync hook?
-
-## Viewing
-Pictures can be viewed in any photo gallery but if you are looking for something simple and open-source I recommend [SimpleGallery](https://github.com/SimpleMobileTools/Simple-Gallery).
+TODO: Workaround the lack of a proper hook. +asap
 
