@@ -58,23 +58,24 @@ function importPics {
     
     mapfile -t pictures < <(findPics "$src") # see SC2207
     for srcPath in "${pictures[@]}"; do
-        unset mime exif exifDate dstDir dstName # garbage collection
+        unset mime exif srcDate dstDir dstName # garbage collection
 
         mime=$(file --mime-type "$srcPath") # check mime type and skip iteration if not an image
         if ! (rg "image/" <<< "$mime" 1>/dev/null); then
             echo "$srcPath is not an image."; continue
         fi
 
-        exif=$(exiv2 pr "$srcPath" 2>/dev/null) && # get exif date
-        srcDate=$(rg -a 'Image timestamp : ' -r '' <<< "$exif" | head -1 | sed 's/:/\//;s/:/\//')
-       
+        if exif=$(exiv2 pr "$srcPath" 2>/dev/null); then # get date from exif
+            srcDate=$(rg -a 'Image timestamp : ' -r '' <<< "$exif" | head -1 | sed 's/:/\//;s/:/\//')
+        fi
+
         if ! [ "$srcDate" ]; then # if exif data doesn't exist use modify time and add exif tag to file
             srcDate="$(date -r "$srcPath" "+%s")" && setExif "$srcPath" "$srcDate"
         fi
 
         dstDir="$dst/$(date -d "@$srcDate" "+%y-%m")" # dir name is YY-MM
         # shellcheck disable=SC2030,SC2031
-        dstName="$(date -d "@$srcDate" "+%s").${mime##*/}" # use timestamp on name and mime type on extension
+        dstName="$(date -d "@$srcDate" "+%s").${mime##*/}" # file name is YY-MM-DDTHH-MM-SS.mime_type
         
         smartMove "$srcPath" "$dstDir" "$dstName" # move files
     done
@@ -134,12 +135,13 @@ function optimizePics {
     mapfile -t pictures < <(findPics "$src")
     
     for srcPath in "${pictures[@]}"; do
-        fileName="${srcPath##*/}"
-        [ "$optimal_format" ] && fileName="${fileName/.*/.$optimal_format}" || fileName="$fileName"
+        fileName="${srcPath##*/}"; [ "$optimal_format" ] && fileName="${fileName/.*/.$optimal_format}"
         
         ! [ "$2" ] || compareTimes "$srcPath" "$dstPath" || continue # skip iteration if source is not newer
 
         dstPath="$dst/$fileName"; convertPic "$srcPath" "$dstPath" # ImageMagick
+
+        touch -m -d "@${fileName%%[-.]*}" "$dstPath" # set modify date
     done
 }
 

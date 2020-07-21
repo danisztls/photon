@@ -42,7 +42,7 @@ TODO: Use getopts. +later
 ## Import
 TODO: Import video files.
 
-TODO: Fix metadata during import instead of stripping and reinserting it at export.
+TODO: Fix metadata during import instead of stripping and reinserting it at export. +done
 
 ## Export
 Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% reduction in size with same image quality unless hyper zooming. Converting to webp and 1080p you would get a bigger size reduction while losing a bit of image quality. Just to save space on phone there isn't a need for cloud storage.
