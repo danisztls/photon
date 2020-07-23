@@ -1,6 +1,8 @@
 #!/bin/bash
-# Moves and rename pictures to a time-based structure of dirs and files. Move only valid images, use exif date, solve collisions and move non-image to root.
-# Dependencies: ripgrep, exiv2, rmlint, trash-cl
+
+# Photon is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License v3 as published by the Free Software Foundation.
+# It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with it. If not, see <https://www.gnu.org/licenses/>.
 
 # FUNCTIONS
 printHelp() {
