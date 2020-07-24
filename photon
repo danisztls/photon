@@ -13,7 +13,7 @@ printHelp() {
 }
 
 # Find all image files in target dir.
-findPics() { find "$1" -regex '.*\.\(jpg\|JPG\|jpeg\|JPEG\|png\|PNG\|webp\|WEBP\)'; }
+findPics() { fd -i '^.*\.(jpg|jpeg|png|webp)$' "$1"; }
 
 # Add or modify file Exif 'Creation Date' tag. 
 setExif() {
