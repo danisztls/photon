@@ -2,10 +2,6 @@
 <!-- TOC GitLab -->
 
 - [Install](#install)
-- [Development](#development)
-    - [Export](#export)
-    - [Scheduling](#scheduling)
-    - [Future](#future)
 
 <!-- /TOC -->
 
@@ -33,31 +29,4 @@ Pictures can be viewed in any photo gallery but if you are looking for something
 Install dependencies: ripgrep, exiv2, ImageMagick, trash-cli
 
 Run `setup` to install photon to `.local/bin/`
-
-# Development
-TODO: Fix photon not working with local paths. +asap
-
-TODO: AUR script. +later
-
-TODO: Use getopts. +later
-
-TODO: Import video files.
-
-
-## Export
-Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% reduction in size with same image quality unless hyper zooming. Converting to webp and 1080p you would get a bigger size reduction while losing a bit of image quality. Just to save space on phone there isn't a need for cloud storage.
-
-TODO: Reencode videos.
-
-It should not difficult to write an auto-enhance script that will do an average job for at least 2 sigmas of use cases.
-
-TODO: Experiment with enhancement scripts. +later
-
-## Scheduling
-Syncthing does not have a hooks feature but it's being [discussed](https://github.com/syncthing/syncthing/issues/5601) and possibly I can monitor journalctl for Syncthing behaviour.
-
-TODO: Workaround the lack of a proper hook. +asap
-
-## Future
-To iterate over file paths in shell script is fragile. The proper way would be to compute hashes of files, store them in db and iterate over them. Bash programming is dirty. File management would be more robust and also faster if the program is rewritten in Python or other language.
 
