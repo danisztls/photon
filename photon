@@ -166,7 +166,7 @@ optimal_format="webp"
 
 # $2 is srcDir or targetDir, $3 is dstDir
 case $1 in
-    --import) dedupPics "$2" && importPics "$2" "$3";;
+    --import) importPics "$2" "$3";;
     --export) exportPics "$2" "$3";;
     --dedup) dedupPics "$2";;
     --clean) cleanPics "$2" "$3";;
