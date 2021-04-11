@@ -2,6 +2,8 @@
 
 Photon is the elementary particle of light and electromagnetic radiation and also an open-source no-cloud alternative to Google Photos that provides smart archiving of your photos.
 
+[![GitHub Super-Linter](https://github.com/lbcnz/photon/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
+
 <!-- TOC GFM -->
 
 * [Use case](#use-case)
@@ -27,7 +29,7 @@ Check development notes on [DEVELOPMENT.md](https://github.com/lbcnz/photon/blob
 - Importing photos from a dir with time-based file renaming, deduplication and collision avoidance.
 - Exporting copies of the photos back to the phone, with metadata stripped, resized, and optionally converted, resulting in huge space saving and fast image loading.
 
-Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% reduction in size with same image quality unless hyper zooming. Converting to webp and 1080p I would get a bigger size reduction while losing a bit of image quality. And of course, originals would be preserved on local storage and could be encrypted and them sent to the cloud as backup.
+*Converting to 1440p and stripping metadata I got from 1,4GB to 697MB. A 51,4% reduction in size with same image quality unless hyper zooming. Converting to webp and 1080p I would get a bigger size reduction while losing a bit of image quality. And of course, originals would be preserved on local storage and could be encrypted and them sent to the cloud as backup.*
 
 ## Setup
 Install dependencies: ripgrep, exiv2, ImageMagick, trash-cli
