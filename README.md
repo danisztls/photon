@@ -21,7 +21,7 @@ Photon is the elementary particle of light and electromagnetic radiation and als
 - Have all your photos with you all the time, find, view and share them with others without fuss via a lightweight offline gallery. 
 
 ## Current state
-Currently it is in alpha state.
+Currently it is in alpha state. Be careful as it can destroy your files.
 
 Check development notes on [DEVELOPMENT.md](https://github.com/lbcnz/photon/blob/main/DEVELOPMENT.md). Contributions such as code and feedback are welcomed.
 
