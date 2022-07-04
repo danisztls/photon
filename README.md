@@ -2,8 +2,6 @@
 
 Photon is the elementary particle of light and electromagnetic radiation and also an open-source no-cloud alternative to Google Photos that provides smart archiving of your photos.
 
-[![GitHub Super-Linter](https://github.com/lbcnz/photon/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
-
 <!-- TOC GFM -->
 
 * [Use case](#use-case)
