@@ -21,7 +21,7 @@ Photon is the elementary particle of light and electromagnetic radiation and als
 ## Current state
 Currently it is in alpha state. Be careful as it can destroy your files.
 
-Check development notes on [DEVELOPMENT.md](https://github.com/lbcnz/photon/blob/main/DEVELOPMENT.md). Contributions such as code and feedback are welcomed.
+Check development notes on [DEVELOPMENT.md](https://github.com/danisztls/photon/blob/main/DEVELOPMENT.md). Contributions such as code and feedback are welcomed.
 
 ### Implemented features
 - Importing photos from a dir with time-based file renaming, deduplication and collision avoidance.
